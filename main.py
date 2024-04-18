@@ -37,7 +37,7 @@ class Message(Static):
 class User(Static):
     def __init__(self, id_user: int = -1, username: str = 'user', online_status: bool = False):
         super().__init__()
-        self.id_user = id
+        self.id_user = id_user
         self.username = username
         self.online_status = online_status
 
