@@ -1,12 +1,53 @@
 Message {
     margin: 1;
-    padding: 1
-}
-
-#message {
+    text-style: italic;
     background: $boost;
 }
 
-#input {
-    background: white;
+User {
+    margin: 1;
+}
+
+#user_field {
+    text-style: underline;
+}
+
+#message_field {
+
+}
+
+#date_field {
+    text-style: bold;
+}
+
+#dialog_auth {
+    width: 100;
+    height: 22;
+    margin: 4 8;
+    background: $panel;
+    color: $text;
+    border: tall $background;
+    padding: 1 2;
+    align: center middle;
+}
+
+#auth_button {
+    margin: 1 2;
+    align: center bottom;
+    width: 100%;
+}
+
+#auth_label {
+    margin: 1 5;
+    width: 100%;
+    text-style: bold;
+    content-align: center middle;
+    dock: top
+}
+
+.auth_input {
+    margin: 2;
+    width: 100%;
+    text-style: bold;
+    content-align: center middle;
 }
