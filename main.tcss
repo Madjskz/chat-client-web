@@ -1,6 +1,15 @@
+Authorization_screen {
+    align: center middle;
+}
+
+#auth_button {
+    border: tall $background;
+}
+
 Message {
-    margin: 1;
-    text-style: italic;
+    margin: 0 0 1 1;
+    padding: 0 0 0 1;
+    height: auto;
     background: $boost;
 }
 
@@ -9,25 +18,28 @@ User {
 }
 
 #user_field {
-    text-style: underline;
+    text-style: italic bold;
 }
 
-#message_field {
-
+Static {
+    height: auto;
+    text-align: left;
 }
 
 #date_field {
-    text-style: bold;
+    text-style: italic bold;
 }
 
 #dialog_auth {
-    width: 100;
+    width: 70;
     height: 22;
-    margin: 4 8;
+
+    margin: 2 8;
+
     background: $panel;
     color: $text;
     border: tall $background;
-    padding: 1 2;
+
     align: center middle;
 }
 
@@ -42,6 +54,7 @@ User {
     width: 100%;
     text-style: bold;
     content-align: center middle;
+    text-align: center;
     dock: top
 }
 
@@ -50,4 +63,20 @@ User {
     width: 100%;
     text-style: bold;
     content-align: center middle;
+}
+
+#user_container{
+    margin: 1 1 0 2;
+    background: $boost;
+    border: vkey $background;
+}
+
+#message_container{
+    margin: 1 0 0 0;
+    background: $boost;
+    border: vkey $background;
+}
+
+#input_message {
+    margin: 1;
 }
