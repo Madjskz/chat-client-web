@@ -3,7 +3,7 @@ import json
 
 import websockets
 
-from textual import work, events
+from textual import work, on
 from textual.app import App, ComposeResult
 from textual.containers import ScrollableContainer, Container, Horizontal
 from textual.screen import Screen
@@ -82,12 +82,12 @@ class ChatApp(App):
         self.users_list: list = []
         self.messages_list: list = []
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == 'auth_button':
-            self.login = self.query_one('#login').value
-            self.password = self.query_one('#password').value
+    @on(Button.Pressed, '#auth_button')
+    def on_button_pressed(self) -> None:
+        self.login = self.query_one('#login').value
+        self.password = self.query_one('#password').value
 
-            self.send_auth = True
+        self.send_auth = True
 
     async def on_load(self) -> None:
         self.websocket_start()
@@ -167,7 +167,7 @@ class ChatApp(App):
         await self.query_one("#user_container").mount(self.users_list[-1])
 
     async def delete_message(self, js: json) -> None:
-        await self.query_one(f'message_{js['ID']}').remove()
+        self.query_one(f'#user_field_{js['idMessage']}').parent.remove()
 
     async def send_message_on_server(self, websocket: websockets) -> None:
         while True:
@@ -193,9 +193,9 @@ class Message(Static):
         self.date = date
 
     def compose(self):
-        yield Static(self.username, id='user_field')
-        yield Static(self.text, id='message_field')
-        yield Static(self.date, id='date_field')
+        yield Static(self.username, id=f'user_field_{self.id_message}')
+        yield Static(self.text, id=f'message_field_{self.id_message}')
+        yield Static(self.date, id=f'date_field_{self.id_message}')
 
 
 class User(Static):
@@ -209,7 +209,7 @@ class User(Static):
 
     def compose(self):
         self.static = Static(self.username, id=f'user_online_field_{self.id_user}')
-        self.static.styles.color = 'red'
+        self.static.styles.color = 'green' if self.online_status else 'red'
 
         yield self.static
 
