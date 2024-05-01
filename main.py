@@ -4,10 +4,10 @@ import json
 import websockets
 
 from textual import work, on
-from textual.app import App, ComposeResult
+from textual.app import App, ComposeResult, ReturnType
 from textual.containers import ScrollableContainer, Container, Horizontal
-from textual.screen import Screen
-from textual.widgets import Footer, Header, Static, Label, Input, Button
+from textual.screen import Screen, RenderableType
+from textual.widgets import Header, Static, Label, Input, Button
 
 
 URI: str = "ws://localhost:8765"
@@ -26,8 +26,6 @@ class Authorization_screen(Screen):
 class Chat_screen(Screen):
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-
-        yield Footer()
 
         user_container = ScrollableContainer(id='user_container')
         user_container.styles.width = 20
@@ -55,10 +53,6 @@ class Chat_screen(Screen):
 class ChatApp(App):
     CSS_PATH = 'main.tcss'
 
-    BINDINGS = [
-        ("q", "close", "Close"),
-    ]
-
     MODES = {
         'authorization': Authorization_screen,
         'chat': Chat_screen
@@ -70,8 +64,6 @@ class ChatApp(App):
 
     def __init__(self):
         super().__init__()
-        self.send_auth: bool = False
-        self.is_close: bool = False
 
         self.login: str = ''
         self.password: str = ''
@@ -83,20 +75,14 @@ class ChatApp(App):
         self.messages_list: list = []
 
     @on(Button.Pressed, '#auth_button')
-    def on_button_pressed(self) -> None:
+    async def on_button_pressed(self) -> None:
         self.login = self.query_one('#login').value
         self.password = self.query_one('#password').value
 
-        self.send_auth = True
-
-    async def on_load(self) -> None:
         self.websocket_start()
 
-    @work(exclusive=True, thread=True)
+    @work(name='websocket', exclusive=False, thread=True)
     async def websocket_start(self) -> None:
-        while not self.send_auth:
-            await asyncio.sleep(0.2)
-
         async with websockets.connect(URI) as websocket:
             await websocket.send(json.dumps({
                 'username': self.login,
@@ -120,30 +106,35 @@ class ChatApp(App):
             self.query_one(Input).value = ''
 
     async def listen_server(self, websocket: websockets) -> None:
-        while True:
-            if self.is_close:
-                await websocket.close()
+        try:
+            while True:
+                if (self._exit or self.return_value or self.return_code
+                        or (not self.is_running) or self.is_headless):
+                    await websocket.close()
 
-            try:
-                recv = await asyncio.wait_for(websocket.recv(), timeout=1)
+                try:
+                    recv = await asyncio.wait_for(websocket.recv(), timeout=1)
 
-                if len(recv) <= 1:
-                    continue
+                    if len(recv) < 1:
+                        continue
 
-                type_recv, js = recv[0], json.loads(recv[1:])
+                    type_recv = recv[0]
 
-                match type_recv:
-                    case '0':
-                        await self.get_new_message(js)
-                    case '1':
-                        await self.get_online_status(js)
-                    case '2':
-                        await self.get_new_user(js)
-                    case '3':
-                        await self.delete_message(js)
-
-            except TimeoutError:
-                pass
+                    match type_recv:
+                        case '0':
+                            await self.get_new_message(json.loads(recv[1:]))
+                        case '1':
+                            await self.get_online_status(json.loads(recv[1:]))
+                        case '2':
+                            await self.get_new_user(json.loads(recv[1:]))
+                        case '3':
+                            await self.delete_message(json.loads(recv[1:]))
+                        case 'R':
+                            self.query_one("#message_container").action_scroll_end()
+                except asyncio.TimeoutError:
+                    ...
+        finally:
+            ...
 
     async def get_new_message(self, js: json) -> None:
         self.messages_list.append(Message(js['ID'], await self.find_username(js['OwnerID']),
@@ -167,7 +158,7 @@ class ChatApp(App):
         await self.query_one("#user_container").mount(self.users_list[-1])
 
     async def delete_message(self, js: json) -> None:
-        self.query_one(f'#user_field_{js['idMessage']}').parent.remove()
+        self.query_one(f'#user_field_{js["idMessage"]}').parent.remove()
 
     async def send_message_on_server(self, websocket: websockets) -> None:
         while True:
@@ -178,10 +169,6 @@ class ChatApp(App):
                 self.message_wait_send.clear()
 
             await asyncio.sleep(0.1)
-
-    def action_close(self) -> None:
-        self.is_close = True
-        self.bell()
 
 
 class Message(Static):
