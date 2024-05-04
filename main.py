@@ -4,9 +4,9 @@ import json
 import websockets
 
 from textual import work, on
-from textual.app import App, ComposeResult, ReturnType
+from textual.app import App, ComposeResult
 from textual.containers import ScrollableContainer, Container, Horizontal
-from textual.screen import Screen, RenderableType
+from textual.screen import Screen
 from textual.widgets import Header, Static, Label, Input, Button, Footer
 
 
