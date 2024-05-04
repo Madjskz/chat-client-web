@@ -7,7 +7,7 @@ from textual import work, on
 from textual.app import App, ComposeResult, ReturnType
 from textual.containers import ScrollableContainer, Container, Horizontal
 from textual.screen import Screen, RenderableType
-from textual.widgets import Header, Static, Label, Input, Button
+from textual.widgets import Header, Static, Label, Input, Button, Footer
 
 
 URI: str = "ws://localhost:8765"
@@ -49,18 +49,27 @@ class Chat_screen(Screen):
 
         yield Input(id='input_message', placeholder='Введите сообщение')
 
+        yield Footer()
+
 
 class ChatApp(App):
     CSS_PATH = 'main.tcss'
+
+    ENABLE_COMMAND_PALETTE = False
 
     MODES = {
         'authorization': Authorization_screen,
         'chat': Chat_screen
     }
 
+    BINDINGS = [
+        ('d', 'toggle_dark', 'Toggle dark mode'),
+    ]
+
     def on_mount(self) -> None:
         self.switch_mode('authorization')
         self.title = "MAGNET1C H1LLS CHAT"
+        self.dark = not self.dark
 
     def __init__(self):
         super().__init__()
@@ -129,8 +138,6 @@ class ChatApp(App):
                             await self.get_new_user(json.loads(recv[1:]))
                         case '3':
                             await self.delete_message(json.loads(recv[1:]))
-                        case 'R':
-                            self.query_one("#message_container").action_scroll_end()
                 except asyncio.TimeoutError:
                     ...
         finally:
@@ -141,6 +148,7 @@ class ChatApp(App):
                                           js['Message'], js['Date']))
 
         await self.query_one("#message_container").mount(self.messages_list[-1])
+        self.messages_list[-1].scroll_visible(duration=None, speed=None, animate=False)
 
     async def find_username(self, id: int) -> str:
         for user in self.users_list:
@@ -169,6 +177,9 @@ class ChatApp(App):
                 self.message_wait_send.clear()
 
             await asyncio.sleep(0.1)
+
+    def action_toggle_dark(self) -> None:
+        self.dark = not self.dark
 
 
 class Message(Static):
