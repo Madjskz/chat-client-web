@@ -48,7 +48,6 @@ class Chat_screen(Screen):
         )
 
         yield Input(id='input_message', placeholder='Введите сообщение')
-
         yield Footer()
 
 
@@ -74,43 +73,43 @@ class ChatApp(App):
     def __init__(self):
         super().__init__()
 
-        self.login: str = ''
-        self.password: str = ''
-
-        self.current_user_id = None
+        self.current_user_id: int = 0
 
         self.message_wait_send: list = []
         self.users_list: list = []
         self.messages_list: list = []
 
+        self.messages_wait_add: list = []
+        self.users_wait_add: list = []
+
+    is_load_init_data: bool = False
+
     @on(Button.Pressed, '#auth_button')
     async def on_button_pressed(self) -> None:
-        self.login = self.query_one('#login').value
-        self.password = self.query_one('#password').value
+        self.websocket_start(
+            self.query_one('#login').value,
+            self.query_one('#password').value
+        )
 
-        self.websocket_start()
-
-    @work(name='websocket', exclusive=False, thread=True)
-    async def websocket_start(self) -> None:
-        async with websockets.connect(URI) as websocket:
-            await websocket.send(json.dumps({
-                'username': self.login,
-                'password': self.password
+    @work
+    async def websocket_start(self, login, password) -> None:
+        async with websockets.connect(URI) as self.websocket:
+            await self.websocket.send(json.dumps({
+                'username': login,
+                'password': password
             }))
 
-            self.current_user_id = int(str(await websocket.recv()).split()[0])
+            self.current_user_id = int(str(await self.websocket.recv()).split()[0])
 
             await self.switch_mode('chat')
 
-            await asyncio.gather(self.listen_server(websocket),
-                                 self.send_message_on_server(websocket))
+            await asyncio.gather(self.listen_server(self.websocket))
 
-    def on_input_submitted(self, event: Input.Submitted):
+    @work
+    async def on_input_submitted(self, event: Input.Submitted):
         if event.input.id == 'input_message':
-            self.message_wait_send.append(json.dumps({
-                'OwnerID': self.current_user_id,
-                'Message': event.input.value.strip()
-            }))
+            if self.query_one(Input).value:
+                await self.send_message_on_server(self.query_one(Input).value)
 
             self.query_one(Input).value = ''
 
@@ -123,11 +122,7 @@ class ChatApp(App):
 
                 try:
                     recv = await asyncio.wait_for(websocket.recv(), timeout=1)
-
-                    if len(recv) < 1:
-                        continue
-
-                    type_recv = recv[0]
+                    type_recv = recv[0] if len(recv) else None
 
                     match type_recv:
                         case '0':
@@ -138,6 +133,9 @@ class ChatApp(App):
                             await self.get_new_user(json.loads(recv[1:]))
                         case '3':
                             await self.delete_message(json.loads(recv[1:]))
+                        case 'R':
+                            ChatApp.is_load_init_data = True
+                            await self.add_init_data()
                 except asyncio.TimeoutError:
                     ...
         finally:
@@ -147,8 +145,9 @@ class ChatApp(App):
         self.messages_list.append(Message(js['ID'], await self.find_username(js['OwnerID']),
                                           js['Message'], js['Date']))
 
-        await self.query_one("#message_container").mount(self.messages_list[-1])
-        self.messages_list[-1].scroll_visible(duration=None, speed=None, animate=False)
+        if ChatApp.is_load_init_data:
+            await self.query_one("#message_container").mount(self.messages_list[-1])
+            self.messages_list[-1].scroll_visible(duration=None, speed=None, animate=False)
 
     async def find_username(self, id: int) -> str:
         for user in self.users_list:
@@ -163,20 +162,24 @@ class ChatApp(App):
     async def get_new_user(self, js: json) -> None:
         self.users_list.append(User(js['ID'], js['Name'], js['OnlineStatus']))
 
-        await self.query_one("#user_container").mount(self.users_list[-1])
+        if ChatApp.is_load_init_data:
+            await self.query_one("#user_container").mount(self.users_list[-1])
 
     async def delete_message(self, js: json) -> None:
         self.query_one(f'#user_field_{js["idMessage"]}').parent.remove()
 
-    async def send_message_on_server(self, websocket: websockets) -> None:
-        while True:
-            if len(self.message_wait_send):
-                for message in self.message_wait_send:
-                    await websocket.send(message)
+    async def add_init_data(self):
+        await asyncio.gather(
+            self.query_one("#message_container").mount(*self.messages_list),
+            self.query_one("#user_container").mount(*self.users_list)
+        )
+        self.messages_list[-1].scroll_visible(duration=None, speed=None, animate=False)
 
-                self.message_wait_send.clear()
-
-            await asyncio.sleep(0.1)
+    async def send_message_on_server(self, message: str) -> None:
+        await self.websocket.send(json.dumps({
+            'OwnerID': self.current_user_id,
+            'Message': message
+        }))
 
     def action_toggle_dark(self) -> None:
         self.dark = not self.dark
@@ -213,7 +216,8 @@ class User(Static):
 
     def change_online_status(self, online_status):
         self.online_status = online_status
-        self.query_one(f'#user_online_field_{self.id_user}').styles.color = 'green' if self.online_status else 'red'
+        if ChatApp.is_load_init_data:
+            self.query_one(f'#user_online_field_{self.id_user}').styles.color = 'green' if self.online_status else 'red'
 
 
 if __name__ == "__main__":
