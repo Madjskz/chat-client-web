@@ -25,7 +25,7 @@ class Authorization_screen(Screen):
 
 class Chat_screen(Screen):
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+        yield Header()
 
         user_container = ScrollableContainer(id='user_container')
         user_container.styles.width = 20
@@ -75,14 +75,10 @@ class ChatApp(App):
 
         self.current_user_id: int = 0
 
-        self.message_wait_send: list = []
         self.users_list: list = []
         self.messages_list: list = []
 
-        self.messages_wait_add: list = []
-        self.users_wait_add: list = []
-
-    is_load_init_data: bool = False
+    is_load_chat: bool = False
 
     @on(Button.Pressed, '#auth_button')
     async def on_button_pressed(self) -> None:
@@ -134,7 +130,7 @@ class ChatApp(App):
                         case '3':
                             await self.delete_message(json.loads(recv[1:]))
                         case 'R':
-                            ChatApp.is_load_init_data = True
+                            ChatApp.is_load_chat = True
                             await self.add_init_data()
                 except asyncio.TimeoutError:
                     ...
@@ -145,7 +141,7 @@ class ChatApp(App):
         self.messages_list.append(Message(js['ID'], await self.find_username(js['OwnerID']),
                                           js['Message'], js['Date']))
 
-        if ChatApp.is_load_init_data:
+        if ChatApp.is_load_chat:
             await self.query_one("#message_container").mount(self.messages_list[-1])
             self.messages_list[-1].scroll_visible(duration=None, speed=None, animate=False)
 
@@ -162,7 +158,7 @@ class ChatApp(App):
     async def get_new_user(self, js: json) -> None:
         self.users_list.append(User(js['ID'], js['Name'], js['OnlineStatus']))
 
-        if ChatApp.is_load_init_data:
+        if ChatApp.is_load_chat:
             await self.query_one("#user_container").mount(self.users_list[-1])
 
     async def delete_message(self, js: json) -> None:
@@ -216,7 +212,7 @@ class User(Static):
 
     def change_online_status(self, online_status):
         self.online_status = online_status
-        if ChatApp.is_load_init_data:
+        if ChatApp.is_load_chat:
             self.query_one(f'#user_online_field_{self.id_user}').styles.color = 'green' if self.online_status else 'red'
 
 
